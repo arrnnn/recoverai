@@ -1,0 +1,15 @@
+# RecoverAI - Phase 1-2 dependencies (ML/data layer)
+pandas
+numpy
+scikit-learn
+joblib
+langchain
+langchain-core
+langchain-groq
+python-dotenv
+langgraph
+sqlalchemy
+alembic
+psycopg2-binary
+fastapi
+uvicorn[standard]

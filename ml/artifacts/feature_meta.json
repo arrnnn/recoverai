@@ -1,0 +1,38 @@
+{
+  "numeric_features": [
+    "transaction_amount",
+    "customer_tenure_months",
+    "successful_payments_count",
+    "failed_payments_count",
+    "failure_frequency",
+    "invoice_or_subscription_age_days",
+    "checkout_value",
+    "previous_recovery_attempts",
+    "previous_recovery_success_rate"
+  ],
+  "categorical_features": [
+    "case_type",
+    "payment_method",
+    "gateway",
+    "customer_segment",
+    "failure_reason"
+  ],
+  "all_features": [
+    "transaction_amount",
+    "customer_tenure_months",
+    "successful_payments_count",
+    "failed_payments_count",
+    "failure_frequency",
+    "invoice_or_subscription_age_days",
+    "checkout_value",
+    "previous_recovery_attempts",
+    "previous_recovery_success_rate",
+    "case_type",
+    "payment_method",
+    "gateway",
+    "customer_segment",
+    "failure_reason"
+  ],
+  "target": "recoverable",
+  "tuned_threshold": 0.29
+}

@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Env / secrets
+.env
+
+# OS
+.DS_Store
+
+# Node / frontend (future phases)
+node_modules/
+.next/
+dist/
+build/
+
+# ML artifacts (optional: comment out if you want to commit trained models)
+# ml/artifacts/*.joblib
+*.db
