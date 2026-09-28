@@ -80,3 +80,18 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-14px); }
+}
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+@keyframes float-slow-delayed {
+  0%, 100% { transform: translateY(-8px); }
+  50% { transform: translateY(6px); }
+}
+.animate-float-slow-delayed {
+  animation: float-slow-delayed 8s ease-in-out infinite;
+}

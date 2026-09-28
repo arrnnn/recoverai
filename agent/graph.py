@@ -17,7 +17,9 @@ Wires together everything built so far into one traceable graph:
 Every node appends a structured entry to `execution_log`, so by the end of
 the run the full state is a complete audit trail: what the model predicted,
 what the LLM recommended and why, what the policy engine decided (and why),
-and what the simulated outcome was.
+and what the simulated outcome was. Log messages are written in plain,
+human-readable language (via labels.humanize) since they are shown directly
+in the Agent Workflow Timeline UI -- not just for developer debugging.
 
 Usage:
     python agent/graph.py
@@ -39,6 +41,7 @@ if _ML_DIR not in sys.path:
 import predict as ml_predict  # noqa: E402
 
 from currency import format_dual  # noqa: E402
+from labels import humanize  # noqa: E402
 from llm_client import get_recommendation  # noqa: E402
 from policy import check_policy  # noqa: E402
 from state import AgentState  # noqa: E402
@@ -63,7 +66,11 @@ def analyze_case_node(state: AgentState) -> AgentState:
         state["error"] = f"Case missing required fields: {missing}"
         _log(state, "analyze_case", f"Validation FAILED: missing {missing}")
         return state
-    _log(state, "analyze_case", f"Case validated: {case.get('case_type')} / {case.get('failure_reason')}")
+    _log(
+        state,
+        "analyze_case",
+        f"Case reviewed: {humanize(case.get('case_type'))} due to {humanize(case.get('failure_reason'))}.",
+    )
     return state
 
 
@@ -76,8 +83,8 @@ def ml_prediction_node(state: AgentState) -> AgentState:
     _log(
         state,
         "ml_prediction",
-        f"Predicted recoverable_probability={result['recoverable_probability']} "
-        f"(risk_level={result['risk_level']})",
+        f"Model estimates a {result['recoverable_probability']*100:.1f}% chance of recovery "
+        f"({humanize(result['risk_level'])} risk).",
         prediction=result["recoverable_probability"],
         risk_level=result["risk_level"],
     )
@@ -97,7 +104,7 @@ def root_cause_analysis_node(state: AgentState) -> AgentState:
     _log(
         state,
         "root_cause_analysis",
-        f"LLM recommends {rec.recommended_action} (confidence={rec.confidence}): {rec.root_cause}",
+        f"AI recommends {humanize(rec.recommended_action)} ({rec.confidence*100:.0f}% confidence): {rec.root_cause}",
         recommended_action=rec.recommended_action,
         llm_confidence=rec.confidence,
     )
@@ -105,6 +112,12 @@ def root_cause_analysis_node(state: AgentState) -> AgentState:
 
 
 def decision_router_node(state: AgentState) -> AgentState:
+    """Sanity-check layer between the LLM's opinion and the policy engine.
+
+    This is NOT the policy engine itself -- it's a lightweight guard that
+    catches obviously unsafe situations (e.g. the LLM being very unsure)
+    before anything reaches policy/execution.
+    """
     if state.get("error"):
         return state
     llm_conf = state.get("llm_confidence", 0.0)
@@ -114,15 +127,19 @@ def decision_router_node(state: AgentState) -> AgentState:
         _log(
             state,
             "decision_router",
-            f"Overriding low-confidence recommendation ({action}, conf={llm_conf}) -> ESCALATE_TO_HUMAN",
+            f"Confidence too low ({llm_conf*100:.0f}%) -- escalating to a human instead of {humanize(action)}.",
         )
         state["recommended_action"] = "ESCALATE_TO_HUMAN"
     else:
-        _log(state, "decision_router", f"Routing forward with action={action} (conf={llm_conf})")
+        _log(state, "decision_router", f"Proceeding with {humanize(action)} ({llm_conf*100:.0f}% confidence).")
     return state
 
 
 def policy_check_node(state: AgentState) -> AgentState:
+    """Runs the real deterministic policy engine (Phase 6) against the LLM's
+    recommendation. This is the actual guardrail -- it can approve, reject,
+    or downgrade the recommended action regardless of LLM confidence.
+    """
     if state.get("error"):
         return state
     result = check_policy(
@@ -131,11 +148,13 @@ def policy_check_node(state: AgentState) -> AgentState:
         llm_confidence=state.get("llm_confidence", 0.0),
     )
     state["policy_result"] = result.to_dict()
+    # if policy downgraded/rejected the action, the final_action is what
+    # actually gets executed next, not the LLM's original recommendation
     state["recommended_action"] = result.final_action
     _log(
         state,
         "policy_check",
-        f"Policy decision: {result.decision} [{result.triggered_rule}] — {result.reason}",
+        f"Policy engine: {result.decision.lower()} -- {result.reason}",
         decision=result.decision,
         triggered_rule=result.triggered_rule,
     )
@@ -143,9 +162,14 @@ def policy_check_node(state: AgentState) -> AgentState:
 
 
 def recovery_action_node(state: AgentState) -> AgentState:
+    """Executes the (policy-approved) action using the real tool suite
+    (Phase 6): simulate_payment_retry, create_recovery_email, or
+    escalate_case. Every outcome is simulated -- no real gateway or email
+    provider is ever called.
+    """
     if state.get("error"):
         return state
-    action = state["recommended_action"]
+    action = state["recommended_action"]  # already policy-adjusted
     case = state["case"]
     prob = state.get("prediction", 0.0)
 
@@ -163,6 +187,8 @@ def recovery_action_node(state: AgentState) -> AgentState:
         }
     elif action in ("SEND_PAYMENT_REMINDER", "SEND_EMAIL"):
         email = create_recovery_email(case, state.get("root_cause", ""))
+        # sending a reminder isn't itself a monetary recovery event yet --
+        # it's a nudge; recovered_amount is 0 until/unless a later retry succeeds
         result = {"status": "SUCCESS", "recovered_amount": 0.0, "detail": email}
     else:
         result = {"status": "FAILED", "recovered_amount": 0.0, "detail": f"Unhandled action: {action}"}
@@ -171,7 +197,7 @@ def recovery_action_node(state: AgentState) -> AgentState:
     _log(
         state,
         "recovery_action",
-        f"Simulated recovery result: {result['status']} ({format_dual(result['recovered_amount'])})",
+        f"Recovery outcome: {humanize(result['status'])} -- {format_dual(result['recovered_amount'])} recovered.",
         status=result["status"],
     )
     return state
@@ -179,12 +205,12 @@ def recovery_action_node(state: AgentState) -> AgentState:
 
 def record_outcome_node(state: AgentState) -> AgentState:
     if state.get("error"):
-        _log(state, "record_outcome", f"Run ended with error: {state['error']}")
+        _log(state, "record_outcome", "Run ended with an error before completion.")
         return state
     _log(
         state,
         "record_outcome",
-        f"Outcome recorded: {state['recovery_result']['status']}",
+        f"Final outcome recorded: {humanize(state['recovery_result']['status'])}.",
     )
     return state
 
@@ -206,9 +232,13 @@ def final_response_node(state: AgentState) -> AgentState:
         "recovered_amount_display": format_dual(state["recovery_result"]["recovered_amount"]),
         "steps": len(state.get("execution_log", [])),
     }
-    _log(state, "final_response", "Assembled final response")
+    _log(state, "final_response", "Case summary finalized.")
     return state
 
+
+# --------------------------------------------------------------------------
+# Graph construction
+# --------------------------------------------------------------------------
 
 def build_graph():
     graph = StateGraph(AgentState)
@@ -255,16 +285,16 @@ if __name__ == "__main__":
     demo_case = {
         "case_type": "failed_payment",
         "failure_reason": "card_expired",
-        "transaction_amount": 45000.0,
-        "customer_segment": "enterprise",
-        "customer_tenure_months": 60,
+        "transaction_amount": 120.0,
+        "customer_segment": "consumer",
+        "customer_tenure_months": 36,
         "payment_method": "credit_card",
         "gateway": "stripe",
-        "failure_frequency": 0.02,
+        "failure_frequency": 0.03,
         "previous_recovery_attempts": 0,
-        "previous_recovery_success_rate": 0.95,
-        "invoice_or_subscription_age_days": 5,
-        "checkout_value": 45000.0,
+        "previous_recovery_success_rate": 0.9,
+        "invoice_or_subscription_age_days": 15,
+        "checkout_value": 120.0,
     }
     final_state = run_case(demo_case)
 

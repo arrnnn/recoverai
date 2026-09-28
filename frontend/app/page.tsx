@@ -1,136 +1,107 @@
 import Link from "next/link";
-import { ArrowRight, AlertTriangle, TrendingUp, Percent, Layers, ShieldAlert, CheckCircle2 } from "lucide-react";
-import { api, type AnalyticsSummary, type CaseSummary, type RecoveryPerformance } from "@/lib/api";
-import { formatDual } from "@/lib/currency";
-import { StatusBadge } from "@/components/status-badge";
-import { KpiCard } from "@/components/kpi-card";
-import { SimulationBanner } from "@/components/simulation-banner";
-import { SystemHealth } from "@/components/system-health";
-import { RevenueComparisonChart } from "@/components/revenue-chart";
-import { MiniStatusChart } from "@/components/mini-status-chart";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-type DashboardResult =
-  | { ok: true; summary: AnalyticsSummary; recentCases: CaseSummary[]; recoveryPerf: RecoveryPerformance }
-  | { ok: false; error: string };
+const WORDMARK = [
+  { text: "Recover", tone: "text-foreground" },
+  { text: "AI", tone: "text-[#9c8362]" },
+];
 
-async function getDashboardData(): Promise<DashboardResult> {
-  try {
-    const [summary, recentCases, recoveryPerf] = await Promise.all([
-      api.getSummary(),
-      api.listCases({ limit: 8 }),
-      api.getRecoveryPerformance(),
-    ]);
-    return { ok: true, summary, recentCases, recoveryPerf };
-  } catch {
-    return {
-      ok: false,
-      error:
-        "Could not reach the RecoverAI API. Make sure the backend is running at " +
-        (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") +
-        ".",
-    };
-  }
-}
-
-export default async function DashboardPage() {
-  const data = await getDashboardData();
-
-  if (!data.ok) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-sm text-muted-foreground">{data.error}</CardContent>
-      </Card>
-    );
-  }
-
-  const { summary, recentCases, recoveryPerf } = data;
-
+export default function SplashPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Live revenue-recovery performance.</p>
-        </div>
-        <SystemHealth />
-      </div>
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-white via-slate-50 to-blue-50 px-6 text-center">
+      {/* decorative chart illustration, top-left */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 220 160"
+        className="animate-float-slow pointer-events-none absolute -left-6 top-16 h-40 w-56 opacity-40 sm:left-10 sm:top-24"
+      >
+        <rect x="20" y="90" width="20" height="50" rx="4" fill="#c7d7ee" />
+        <rect x="55" y="65" width="20" height="75" rx="4" fill="#c7d7ee" />
+        <rect x="90" y="100" width="20" height="40" rx="4" fill="#c7d7ee" />
+        <rect x="125" y="45" width="20" height="95" rx="4" fill="#b7ccec" />
+        <polyline
+          points="30,80 65,55 100,70 135,25 170,15"
+          fill="none"
+          stroke="#8fb0e0"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {[30, 65, 100, 135, 170].map((x, i) => (
+          <circle key={i} cx={x} cy={[80, 55, 70, 25, 15][i]} r="4" fill="#7ba3dd" />
+        ))}
+      </svg>
 
-      <SimulationBanner />
+      {/* decorative card illustration, right side */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 220 150"
+        className="animate-float-slow-delayed pointer-events-none absolute -right-8 top-1/3 h-44 w-64 opacity-40 sm:right-6"
+      >
+        <rect x="15" y="15" width="190" height="120" rx="16" fill="#dbe6f7" transform="rotate(-6 110 75)" />
+        <rect x="35" y="45" width="28" height="20" rx="4" fill="#aec4e8" transform="rotate(-6 49 55)" />
+        <circle cx="150" cy="95" r="4" fill="#aec4e8" />
+        <circle cx="164" cy="95" r="4" fill="#aec4e8" />
+        <circle cx="178" cy="95" r="4" fill="#aec4e8" />
+      </svg>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard icon={AlertTriangle} label="Revenue at risk" value={formatDual(summary.revenue_at_risk_usd)} tone="danger" />
-        <KpiCard icon={TrendingUp} label="Revenue recovered" value={formatDual(summary.revenue_recovered_usd)} tone="success" />
-        <KpiCard icon={Percent} label="Recovery rate" value={`${(summary.recovery_rate * 100).toFixed(1)}%`} tone="info" />
-        <KpiCard icon={Layers} label="Total cases" value={summary.total_cases.toLocaleString()} />
-        <KpiCard icon={ShieldAlert} label="High-risk cases" value={summary.high_risk_cases.toLocaleString()} tone="warning" />
-        <KpiCard icon={CheckCircle2} label="Successful recoveries" value={summary.successful_recoveries.toLocaleString()} tone="success" />
-      </div>
+      {/* soft wave at the bottom */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 320"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full opacity-50"
+        preserveAspectRatio="none"
+      >
+        <path
+          fill="#dbe6f7"
+          d="M0,224L60,213.3C120,203,240,181,360,181.3C480,181,600,203,720,224C840,245,960,267,1080,256C1200,245,1320,203,1380,181.3L1440,160L1440,320L0,320Z"
+        />
+      </svg>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue: at risk vs. recovered</CardTitle>
-            <CardDescription>USD, current totals across all cases.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RevenueComparisonChart atRisk={summary.revenue_at_risk_usd} recovered={summary.revenue_recovered_usd} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Recovery outcomes</CardTitle>
-            <CardDescription>Live counts by simulated recovery status.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MiniStatusChart data={recoveryPerf.by_recovery_status} />
-          </CardContent>
-        </Card>
-      </div>
+      {/* content */}
+      <div className="relative z-10 flex flex-col items-center">
+        <span className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground text-2xl font-extrabold text-background shadow-lg">
+          R
+        </span>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Recent cases</CardTitle>
-          <Link href="/cases" className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-            View all <ArrowRight className="size-3.5" />
+        <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl">
+          {WORDMARK.map((word, wi) => (
+            <span key={wi} className={word.tone}>
+              {word.text.split("").map((letter, li) => (
+                <span
+                  key={li}
+                  className="inline-block transition-all duration-200 ease-out hover:-translate-y-1.5 hover:text-blue-600"
+                >
+                  {letter}
+                </span>
+              ))}
+            </span>
+          ))}
+        </h1>
+
+        <p className="mt-5 max-w-lg text-2xl font-semibold leading-snug text-[#41608a] sm:text-3xl">
+          Smarter recovery. Higher revenue.
+          <br />
+          Powered by AI.
+        </p>
+
+        <p className="mt-4 max-w-md text-sm font-medium text-muted-foreground">
+          Detects at-risk payments, finds the right action, and helps you recover more — automatically.
+        </p>
+        
+
+        <Button
+          asChild
+          size="lg"
+          className="mt-9 rounded-full px-8 py-6 text-base font-bold shadow-lg transition-transform duration-200 hover:scale-105 hover:shadow-xl"
+        >
+          <Link href="/dashboard">
+            Start
+            <ArrowRight className="size-4" />
           </Link>
-        </CardHeader>
-        <CardContent>
-          {recentCases.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">No cases yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Case</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Risk</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentCases.map((c) => (
-                  <TableRow key={c.case_id}>
-                    <TableCell>
-                      <Link href={`/cases/${c.case_id}`} className="font-medium hover:underline">
-                        {c.case_id}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{c.case_type}</TableCell>
-                    <TableCell className="tabular">{formatDual(c.transaction_amount)}</TableCell>
-                    <TableCell>{c.risk_level ? <StatusBadge value={c.risk_level} /> : <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="text-muted-foreground">{c.latest_action || "—"}</TableCell>
-                    <TableCell><StatusBadge value={c.status} /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        </Button>
+      </div>
     </div>
   );
 }
